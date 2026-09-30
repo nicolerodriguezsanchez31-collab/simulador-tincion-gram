@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulador de tinción de Gram</title>
+<link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1f4;--card:#fff;--ink:#17212b;--mut:#5b6875;--line:#cfd7de;--vio:#4b2a8f;--pink:#d63a73;--ok:#0f766e;--bad:#b42318;--lo:#e3f2ef;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10161c;--card:#19222b;--ink:#e8edf2;--mut:#93a1ae;--line:#2c3945;--vio:#a48be0;--lo:#12302c;--ok:#4fd1c0;--bad:#ff8a7a}}
+:root[data-theme="dark"]{--bg:#10161c;--card:#19222b;--ink:#e8edf2;--mut:#93a1ae;--line:#2c3945;--vio:#a48be0;--lo:#12302c;--ok:#4fd1c0;--bad:#ff8a7a}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 'Familjen Grotesk',system-ui,sans-serif}
+main{max-width:560px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:0 0 2px}h2{font-size:18px;margin:0 0 6px}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.score{font-weight:700;color:var(--vio)}
+.prog{display:flex;gap:4px;margin:10px 0}.prog i{flex:1;height:6px;border-radius:3px;background:var(--line)}
+.prog i.d{background:var(--ok)}.prog i.c{background:var(--vio)}
+.scope{background:#0d1014;border-radius:14px;padding:8px}
+svg{display:block;width:100%;height:auto}
+.g{transition:fill 1.2s,stroke 1.2s}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px}
+.spec{color:var(--mut);margin:0 0 4px}
+.opts{display:grid;gap:8px;margin-top:10px}
+button{font:inherit;text-align:left;padding:12px 14px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;min-height:48px}
+button:focus-visible{outline:3px solid var(--vio);outline-offset:2px}
+button.go{background:var(--vio);color:#fff;border-color:var(--vio);text-align:center;font-weight:700}
+:root:not([data-theme="light"]) button.go{color:#10161c}
+.fb{margin-top:10px;padding:10px 12px;border-radius:10px;font-size:15px}
+.fb.ok{background:var(--lo);color:var(--ok)}.fb.no{background:rgba(180,35,24,.12);color:var(--bad)}
+.bar{position:relative;height:16px;border-radius:8px;background:var(--line);margin:10px 0;overflow:hidden}
+.zone{position:absolute;top:0;bottom:0;background:var(--ok);opacity:.35}
+.fill{position:absolute;top:0;bottom:0;left:0;width:0;background:var(--vio)}
+.big{font-size:34px;font-weight:700;text-align:center}
+.leg{display:flex;gap:14px;flex-wrap:wrap;margin:6px 0}.leg span:before{content:"";display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;background:var(--c)}
+.ill{background:var(--lo);border-radius:10px;margin:8px 0}.lt{fill:var(--ink);font-size:11px;font-family:inherit}
+ul.rv{padding-left:18px;margin:8px 0}ul.rv li{margin-bottom:6px}.y{color:var(--ok)}.n{color:var(--bad)}
+.q{font-size:19px;font-weight:700;line-height:1.35;background:var(--lo);border-left:5px solid var(--vio);padding:12px 14px;border-radius:10px;margin:10px 0 0}
+.st{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}.cap{font-size:13px;color:var(--mut);text-align:center;padding:0 10px 8px}
+@media (prefers-reduced-motion:reduce){.g{transition:none}}
+</style></head><body><main>
+<div class="top"><h1>Simulador de tinción de Gram</h1><span class="score" id="sc">0 pts</span></div>
+<div class="prog" id="pg"></div>
+<div class="card" id="cd"></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const V='#4b2a8f',L='#2f1b6b',C='#ebe4d6',P='#e0457b';
+const S=[
+{t:'Ponerte el EPP',spec:'Vas a manipular una muestra que puede contener microorganismos. ¿Qué equipo usas?',o:['Bata, guantes, cubrebocas y lentes de seguridad','Solo guantes','Solo bata'],f:['El EPP protege tu piel, ojos, mucosas y ropa de microorganismos y reactivos, y también cuida la muestra.','Los guantes solos no protegen la cara, los ojos ni la ropa.','La bata sola deja expuestas las manos, la boca, la nariz y los ojos.']},
+{t:'Tomar la muestra',spec:'Necesitas un exudado nasal o faríngeo. Elige cómo tomarlo.',o:['Hisopo estéril: frotar con giros la pared posterior de la faringe o la fosa nasal','Escupir en un tubo','Usar un algodón que ya se usó antes'],f:['El hisopo estéril recoge células y bacterias del sitio sin contaminar la muestra.','La saliva no es un exudado faríngeo y trae flora de la boca.','Un material usado contamina la muestra.']},
+{t:'Hacer el frotis',spec:'Pasa la muestra del hisopo a un portaobjetos limpio.',o:['Rodar suavemente el hisopo sobre el portaobjetos y dejar secar al aire','Frotar con fuerza hasta cubrir todo el vidrio','Meter el portaobjetos en un tubo con el hisopo'],f:['Rodar suave forma una capa fina y no rompe las células.','Frotar fuerte deforma y daña las células.','Así no se forma un frotis: la muestra no queda extendida.']},
+{t:'Fijar el frotis',spec:'El frotis ya está seco. ¿Cómo lo fijas al vidrio?',o:['Pasar por la llama 2–3 veces','Hervir el portaobjetos','Dejar la muestra sin fijar'],f:['Así las bacterias se adhieren al vidrio y se matan sin deformarse.','Hervir rompe la morfología de las células.','Sin fijar, la muestra se desprende al lavar.']},
+{t:'Colorante primario',spec:'Hay que teñir todas las bacterias. El contacto dura 1 minuto.',o:['Cristal violeta','Safranina','Lugol (yodo)'],f:['El cristal violeta tiñe de morado todas las bacterias.','La safranina es el contraste final, no el primario.','El lugol es el mordiente; va después del cristal violeta.'],tm:{lo:45,hi:90,sp:20,u:'segundos'},fx:()=>{pos=neg=V}},
+{t:'Mordiente',spec:'Hay que fijar el colorante dentro de la pared celular. El contacto dura 1 minuto.',o:['Lugol (yodo)','Safranina','Alcohol-acetona'],f:['El yodo forma un complejo cristal violeta–yodo que queda atrapado en la pared.','La safranina se usa al final.','El decolorante va después del lugol, no antes.'],tm:{lo:45,hi:90,sp:20},fx:()=>{pos=neg=L}},
+{t:'Decolorar (paso crítico)',spec:'Paso crítico: dura solo entre 5 y 15 segundos.',o:['Alcohol-acetona','Cristal violeta','Agua destilada'],f:['El alcohol disuelve la membrana externa de las Gram negativas y deshidrata la pared gruesa de las Gram positivas.','Eso volvería a teñir, no decolora.','El agua sola no arrastra el complejo.'],tm:{lo:5,hi:15,sp:4},fx:r=>{if(r=='ok')neg=C;if(r=='long')pos=neg=C;dec=r}},
+{t:'Lavar',spec:'Hay que detener la decoloración y quitar el exceso.',o:['Agua destilada en chorro suave','Alcohol al 70%','No lavar'],f:['Detiene la decoloración y retira el exceso.','El alcohol seguiría decolorando.','Sin lavar, el decolorante sigue actuando.']},
+{t:'Colorante de contraste',spec:'Hay que teñir las células que perdieron el color. El contacto dura entre 30 y 60 segundos.',o:['Safranina','Lugol (yodo)','Cristal violeta'],f:['La safranina tiñe de rosa las células que perdieron el morado.','El lugol no es un contraste.','El cristal violeta taparía el contraste.'],tm:{lo:30,hi:80,sp:20},fx:()=>{if(pos==C)pos=P;if(neg==C)neg=P}},
+{t:'Lavar y secar',spec:'El frotis debe quedar seco y listo para observarse.',o:['Secar con papel absorbente sin frotar','Frotar con papel','Calentar fuerte en la llama'],f:['Deja el frotis listo para el aceite de inmersión.','Frotar arrastra las bacterias.','El calor fuerte deforma las células.']},
+{t:'Observar al microscopio',spec:'Elige el objetivo para ver bien la forma de las bacterias.',o:['100x con aceite de inmersión','10x en seco','40x en seco'],f:['Con 100x se distinguen forma y color de las bacterias.','10x no permite ver bacterias.','40x no da detalle suficiente para la morfología.']}
+];
+function cw(){const t=(x,y,z)=>`<text x="${x}" y="${y}" class="lt" text-anchor="middle">${z}</text>`;
+return `<svg viewBox="0 0 320 116" role="img" aria-label="Pared celular Gram positiva y Gram negativa"><circle cx="80" cy="42" r="28" fill="#cbb8f0" stroke="${V}" stroke-width="10"/><circle cx="240" cy="42" r="26" fill="#f6c3d6" stroke="${P}" stroke-width="3"/><circle cx="240" cy="42" r="32" fill="none" stroke="${P}" stroke-width="2" stroke-dasharray="4 3"/>`+t(80,96,'Gram positiva')+t(80,109,'pared gruesa')+t(240,96,'Gram negativa')+t(240,109,'pared fina y membrana externa')+`</svg>`}
+function abc(){return `<svg viewBox="0 0 320 100" role="img" aria-label="Opciones a, b y c">${['a','b','c'].map((l,q)=>`<g transform="translate(${60+q*100},0)"><rect x="-10" y="10" width="20" height="10" rx="3" fill="#444"/><path d="M-16 20h32v54a8 8 0 0 1-8 8h-16a8 8 0 0 1-8-8z" fill="#cfe3ea" stroke="#7d97a3"/><text x="0" y="58" class="lt" text-anchor="middle" style="font-size:18px;font-weight:700">${l}</text></g>`).join('')}</svg>`}
+const B=c=>`<rect x="-9" y="-32" width="18" height="10" rx="3" fill="#444"/><path d="M-15-22h30v46a6 6 0 0 1-6 6h-18a6 6 0 0 1-6-6z" fill="#cfe3ea" stroke="#7d97a3"/><path d="M-15 2h30v22a6 6 0 0 1-6 6h-18a6 6 0 0 1-6-6z" fill="${c}"/>`;
+const SL=`<rect x="-30" y="8" width="60" height="9" rx="2" fill="#dbeaf0" stroke="#7d97a3"/>`,SM=`<ellipse cx="0" cy="8" rx="18" ry="3" fill="#cfc8bb"/>`;
+const SW=`<path d="M-26-26L14 6" stroke="#c9a66b" stroke-width="3" stroke-linecap="round"/><circle cx="16" cy="8" r="6" fill="#fff" stroke="#b8c2cc"/>`;
+const FL=`<path d="M0 30C-16 16-9 4 0-14 9 4 16 16 0 30Z" fill="#f59e0b"/><path d="M0 30C-7 22-4 14 0 8 4 14 7 22 0 30Z" fill="#fde047"/>`;
+const TB=`<rect x="-8" y="-30" width="16" height="8" rx="2" fill="#444"/><path d="M-11-22h22v42a11 11 0 0 1-22 0z" fill="#cfe3ea" stroke="#7d97a3"/>`;
+const CT=`<circle r="16" fill="#9a96a3"/><circle cx="-6" cy="-4" r="8" fill="#b4b0ba"/>`;
+const X=`<path d="M-18-18L18 18M18-18L-18 18" stroke="#b42318" stroke-width="5" stroke-linecap="round"/>`;
+const GL=`<circle cx="-12" r="12" fill="#5fb6d9"/><circle cx="14" r="12" fill="#5fb6d9"/>`;
+const CO=`<path d="M-18-22Q0-30 18-22L24 26H-24Z" fill="#fff" stroke="#b8c2cc" stroke-width="2"/>`;
+const MK=`<rect x="-16" y="-8" width="32" height="16" rx="5" fill="#8ec5e8" stroke="#3d86b5"/>`;
+const GG=`<rect x="-18" y="-6" width="36" height="12" rx="5" fill="#bfe3f2" stroke="#2c6f8a" stroke-width="2"/>`;
+const FULL=`<g transform="translate(-14,-6) scale(.6)">${CO}</g><g transform="translate(16,-16) scale(.5)">${GG}</g><g transform="translate(16,4) scale(.5)">${MK}</g><g transform="translate(-4,28) scale(.45)">${GL}</g>`;
+const TAP=`<rect x="-22" y="-30" width="36" height="10" rx="4" fill="#666"/><rect x="0" y="-20" width="8" height="10" fill="#666"/><path d="M4-6v34M-2-2v30M10-2v30" stroke="#4aa8e0" stroke-width="3" stroke-linecap="round"/>`;
+const PP=`<rect x="-24" y="-16" width="48" height="34" rx="3" fill="#fff" stroke="#b8c2cc" transform="rotate(-6)"/>`;
+const BO=`<path d="M-24-4h48v26a8 8 0 0 1-8 8h-32a8 8 0 0 1-8-8z" fill="#8d99a6"/><path d="M-14-10q4-6 0-12M0-10q4-6 0-12M14-10q4-6 0-12" stroke="#7d97a3" fill="none" stroke-width="2"/>`;
+const OB=(h,o)=>`<rect x="-8" y="-32" width="16" height="${h}" rx="3" fill="#56667a"/><rect x="-4" y="${h-32}" width="8" height="8" fill="#8fa0b3"/>${o?'<circle cy="'+(h-18)+'" r="4" fill="#d6a520"/>':''}`;
+const AM='#b45309',CL='#e8f1f5',WA='#9bd0ee';
+const GLOVE=`<path d="M-14 14V-2q0-8 6-8t6 8v2q0-6 6-6t6 6v2q0-6 6-6t6 6v10q0 12-10 14h-10q-10-2-10-14z" fill="#e7c9d8" stroke="#c98fae" stroke-width="2"/>`;
+const GOWN=`<path d="M-16-24Q0-32 16-24L22 30H-22Z" fill="#fff" stroke="#b8c2cc" stroke-width="2"/><path d="M-16-24l6 10M16-24l-6 10" stroke="#b8c2cc" stroke-width="2" fill="none"/>`;
+const GOGGLE=`<path d="M-20 0a10 10 0 1 1 20 0 10 10 0 1 1 20 0" fill="none" stroke="#3d86b5" stroke-width="4"/><circle cx="-10" r="9" fill="#bfe3f2" fill-opacity=".85"/><circle cx="10" r="9" fill="#bfe3f2" fill-opacity=".85"/><path d="M-20 0h-8M20 0h8" stroke="#3d86b5" stroke-width="3"/>`;
+const FLAME=`<rect x="-14" y="18" width="28" height="10" rx="2" fill="#8d99a6"/><rect x="-3" y="4" width="6" height="16" fill="#556" /><path d="M0 4C-9-8-4-18 0-30 4-18 9-8 0 4Z" fill="#f59e0b"/><path d="M0 4C-4-2-2-8 0-14 2-8 4-2 0 4Z" fill="#fde047"/>`;
+const BOILPOT=`<path d="M-22-2h44v20a10 10 0 0 1-10 10h-24a10 10 0 0 1-10-10z" fill="#8d99a6"/><path d="M-12-10q4-6 0-12M0-10q4-6 0-12M12-10q4-6 0-12" stroke="#7d97a3" fill="none" stroke-width="2"/><rect x="-24" y="-4" width="48" height="6" rx="2" fill="#6b7683"/>`;
+const SLIDEONLY=`<rect x="-30" y="-3" width="60" height="9" rx="2" fill="#dbeaf0" stroke="#7d97a3"/><ellipse cx="0" cy="1" rx="18" ry="3" fill="#cfc8bb"/>`;
+const ICONS=[[GOWN+GLOVE+GOGGLE,GLOVE,GOWN],[SW,TB+'<circle cy="14" r="6" fill="#bfe3f2"/>',CT],[SL+SW,SL+'<path d="M-24 6l8-8 8 8 8-8 8 8 8-8" stroke="#888" fill="none" stroke-width="2"/>',TB+'<rect x="-4" y="-12" width="8" height="30" fill="#dbeaf0" stroke="#7d97a3"/>'],[`<g transform="translate(-14,-6)">${FLAME}</g><g transform="translate(20,10) scale(.9)">${SLIDEONLY}</g>`,BOILPOT,SLIDEONLY],[B(V),B(P),B(AM)],[B(AM),B(P),B(CL)],[B(CL),B(V),B(WA)],[TAP,B(CL),X],[B(P),B(AM),B(V)],[PP,PP+'<path d="M-28 26H28M-28 26l7-5M28 26l-7-5" stroke="#888" stroke-width="2" fill="none"/>',FL],[OB(62,1),OB(30),OB(46)]];
+function tech(){return `<svg viewBox="0 0 320 146" role="img" aria-label="Laboratorista con su equipo de protección"><g transform="translate(10,0)"><rect x="128" y="132" width="20" height="8" rx="3" fill="#333"/><rect x="152" y="132" width="20" height="8" rx="3" fill="#333"/><path d="M104 66Q150 54 196 66L206 132H94Z" fill="#fff" stroke="#b8c2cc" stroke-width="2"/><path d="M150 62V132" stroke="#b8c2cc"/><path d="M110 74L100 116M190 74L200 116" stroke="#b8c2cc" stroke-width="18" stroke-linecap="round"/><path d="M110 74L100 116M190 74L200 116" stroke="#fff" stroke-width="14" stroke-linecap="round"/><circle cx="99" cy="122" r="9" fill="#5fb6d9"/><circle cx="201" cy="122" r="9" fill="#5fb6d9"/><circle cx="150" cy="38" r="22" fill="#f2c9a5"/><path d="M128 34Q130 10 150 10Q172 10 172 34Q160 24 128 34Z" fill="#3b2f2a"/><rect x="130" y="32" width="40" height="10" rx="4" fill="#bfe3f2" fill-opacity=".8" stroke="#2c6f8a" stroke-width="2"/><rect x="132" y="45" width="36" height="14" rx="5" fill="#8ec5e8" stroke="#3d86b5"/></g></svg><div class="cap">Laboratorista</div>`}
+function nose(){const t=(x,y,z)=>`<text x="${x}" y="${y}" class="lt" text-anchor="middle">${z}</text>`;
+return `<svg viewBox="0 0 320 146" role="img" aria-label="Perfil de la cabeza con la nariz y la garganta"><rect x="150" y="104" width="46" height="34" fill="#f2c9a5"/><ellipse cx="170" cy="58" rx="52" ry="48" fill="#f2c9a5"/><path d="M120 62l-16 16h20z" fill="#f2c9a5"/><path d="M120 76Q142 70 162 78" fill="none" stroke="#d63a73" stroke-width="5" stroke-linecap="round"/><path d="M126 92Q146 98 166 92" fill="none" stroke="#a5654a" stroke-width="3" stroke-linecap="round"/><path d="M168 80Q178 98 172 128" fill="none" stroke="#d63a73" stroke-width="9" stroke-linecap="round"/><path d="M78 80L112 77M262 108L182 108" stroke="#888" stroke-width="1"/>`+t(58,84,'Nariz')+t(288,112,'Garganta')+`</svg><div class="cap">Zonas de donde se toma el exudado</div>`}
+function ill(i,idx){if(i==0)return tech();if(i==1)return nose();return `<svg viewBox="0 0 320 112" role="img" aria-label="Opciones a, b y c">${idx.map((k,q)=>`<g transform="translate(${60+q*100},48)">${ICONS[i][k]}</g><text x="${60+q*100}" y="106" text-anchor="middle" class="lt" style="font-size:16px;font-weight:700">${'abc'[q]}</text>`).join('')}</svg>`}
+function eppImg(){return `<svg viewBox="0 0 320 110" role="img" aria-label="Gradilla con tubos y señal de riesgo biológico"><rect x="60" y="70" width="140" height="10" rx="3" fill="#8d99a6"/>${[80,120,160].map(x=>`<rect x="${x-9}" y="30" width="18" height="46" rx="8" fill="#cfe3ea" stroke="#7d97a3"/><rect x="${x-9}" y="50" width="18" height="26" rx="8" fill="#e88aa8"/>`).join('')}<path d="M255 24l34 58h-68z" fill="#f5c542" stroke="#8a6d00" stroke-width="2"/><text x="255" y="72" text-anchor="middle" font-size="26" font-weight="700" fill="#5a4600">!</text></svg><div class="cap">Riesgo biológico en el laboratorio</div>`}
+function epp(){prog();$('cd').innerHTML=`<h2>Equipo de protección personal (EPP)</h2><div class="ill">${eppImg()}</div><p>El <b>EPP</b> es la ropa y el equipo que te separa de los microorganismos y de los reactivos del laboratorio: bata, guantes, cubrebocas y lentes de seguridad.</p><p class="spec"><b>¿Por qué es importante?</b></p><ul class="rv"><li>Una muestra de nariz o garganta puede tener bacterias y virus que causan infecciones.</li><li>Protege tu piel, tus ojos y tus mucosas de salpicaduras y de colorantes y reactivos.</li><li>Evita que lleves microorganismos a tu ropa, tu casa o a otras personas.</li><li>También protege la muestra de contaminación.</li></ul><div class="opts"><button class="go" id="ep">Continuar</button></div>`;$('ep').onclick=()=>step()}
+function view(){return `<svg viewBox="0 0 320 170" role="img" aria-label="Muestra observada al microscopio"><rect width="320" height="170" rx="10" fill="#f5f1f6"/><g fill="${pos}">${posX.map(p=>`<circle cx="${p[0]}" cy="${p[1]-10}" r="7"/>`).join('')}</g><g fill="${neg}">${negX.map(p=>`<rect x="${p[0]-13}" y="${p[1]-14}" width="26" height="8" rx="4" transform="rotate(${p[2]} ${p[0]} ${p[1]-10})"/>`).join('')}</g></svg>`}
+function lab(){return `<svg viewBox="0 0 320 175" role="img" aria-label="Laboratorio con una persona usando bata, guantes, cubrebocas y gogles"><rect x="12" y="28" width="96" height="6" rx="2" fill="#8d99a6"/><g><rect x="22" y="8" width="14" height="20" rx="3" fill="#cfe3ea" stroke="#7d97a3"/><rect x="22" y="16" width="14" height="12" rx="3" fill="${V}"/><rect x="50" y="8" width="14" height="20" rx="3" fill="#cfe3ea" stroke="#7d97a3"/><rect x="50" y="16" width="14" height="12" rx="3" fill="${P}"/><rect x="78" y="8" width="14" height="20" rx="3" fill="#cfe3ea" stroke="#7d97a3"/><rect x="78" y="16" width="14" height="12" rx="3" fill="#b45309"/></g><path d="M112 56h40" stroke="none"/><rect x="0" y="132" width="320" height="10" fill="#8d99a6"/><rect x="0" y="142" width="320" height="33" fill="#6b7683"/><path d="M268 132V84Q268 62 246 62" fill="none" stroke="#3a4652" stroke-width="9" stroke-linecap="round"/><rect x="236" y="60" width="12" height="32" rx="3" fill="#56667a"/><rect x="238" y="92" width="8" height="10" fill="#8fa0b3"/><rect x="226" y="118" width="56" height="7" fill="#9aa8b6"/><rect x="216" y="128" width="72" height="4" fill="#3a4652"/><rect x="36" y="124" width="26" height="8" rx="2" fill="#8d99a6"/><path d="M49 124C42 116 46 108 49 98 52 108 56 116 49 124Z" fill="#f59e0b"/><path d="M49 124C46 120 47 116 49 112 51 116 52 120 49 124Z" fill="#fde047"/><path d="M104 66Q150 54 196 66L206 132H94Z" fill="#fff" stroke="#b8c2cc" stroke-width="2"/><path d="M150 62V132" stroke="#b8c2cc"/><path d="M110 74L96 112M190 74L204 112" stroke="#b8c2cc" stroke-width="18" stroke-linecap="round"/><path d="M110 74L96 112M190 74L204 112" stroke="#fff" stroke-width="14" stroke-linecap="round"/><rect x="120" y="102" width="60" height="7" rx="2" fill="#dbeaf0" stroke="#7d97a3"/><circle cx="118" cy="108" r="9" fill="#5fb6d9"/><circle cx="182" cy="108" r="9" fill="#5fb6d9"/><circle cx="150" cy="38" r="22" fill="#f2c9a5"/><path d="M128 34Q130 10 150 10Q172 10 172 34Q160 24 128 34Z" fill="#3b2f2a"/><rect x="130" y="32" width="40" height="10" rx="4" fill="#bfe3f2" fill-opacity=".8" stroke="#2c6f8a" stroke-width="2"/><rect x="132" y="45" width="36" height="14" rx="5" fill="#8ec5e8" stroke="#3d86b5"/></svg><div class="cap">Laboratorio: se trabaja siempre con equipo de protección personal</div>`}
+function intro(){i=0;prog();paint();
+$('cd').innerHTML=`<h2>¿De qué trata este juego?</h2><div class="ill">${lab()}</div><div class="ill">${cw()}</div><p>La <b>tinción de Gram</b> es la técnica básica de la bacteriología: separa las bacterias en <b>Gram positivas</b> (moradas) y <b>Gram negativas</b> (rosadas) según su pared celular. Ayuda a orientar el diagnóstico y a elegir antibióticos.</p><p class="spec"><b>Tu misión:</b> ponerte el equipo de protección personal (EPP), tomar una muestra de exudado nasal o faríngeo y hacer la tinción paso a paso, como en el laboratorio, y observar el resultado al microscopio.</p><ul class="rv"><li>En cada paso elige el material correcto.</li><li>En los pasos con tiempo, detén el cronómetro en la zona verde.</li><li>Al final recibes retroalimentación de cada paso.</li></ul><div class="opts"><button class="go" id="st">Comenzar</button></div>`;
+$('st').onclick=()=>epp()}
+let log=[];
+const Q=['¿Qué equipo de protección personal debes usar?','¿Cómo tomas el exudado nasal o faríngeo?','¿Cómo pasas la muestra al portaobjetos?','¿Cómo fijas el frotis al vidrio?','¿Qué colorante usas primero?','¿Qué reactivo actúa como mordiente?','¿Qué sustancia usas para decolorar?','¿Cómo lavas para detener la decoloración?','¿Qué colorante de contraste aplicas?','¿Cómo lavas y secas el frotis?','¿Con qué objetivo observas la muestra?'];
+let i=0,score=0,pos=C,neg=C,dec='ok',err=0,posX=[[90,70],[102,64],[98,80],[112,76],[84,88],[106,92],[120,66],[96,100],[210,60],[222,66],[216,76],[228,78],[204,72]],negX=[[170,120,20],[200,132,-30],[130,130,50],[215,105,10],[150,100,-15],[185,95,70],[235,125,-60]];
+function paint(){}
+function prog(){$('pg').innerHTML=S.map((_,k)=>`<i class="${k<i?'d':k==i?'c':''}"></i>`).join('');$('sc').textContent=score+' pts'}
+function shuf(a){return a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(x=>x[1])}
+function step(){
+ prog();paint();const s=S[i];err=0;
+ const idx=shuf(s.o.map((_,k)=>k));
+ $('cd').innerHTML=`<div class="st">Paso ${i+1} de ${S.length}: ${s.t}</div><div class="ill">${ill(i,idx)}</div><p class="spec">${s.spec}</p><div class="q">${Q[i]}</div><div class="opts">${idx.map((k,q)=>`<button data-k="${k}">${'abc'[q]}) ${s.o[k]}</button>`).join('')}</div><div id="fb"></div>`;
+ $('cd').querySelectorAll('.opts button').forEach(b=>b.onclick=()=>pick(+b.dataset.k));
+}
+function pick(k){
+ const s=S[i],fb=$('fb');
+ if(k!=0){err++;score=Math.max(0,score-3);$('sc').textContent=score+' pts';fb.className='fb no';fb.textContent='Incorrecto. '+s.f[k];return}
+ log[i]={e:err};score+=Math.max(0,10-5*err);$('sc').textContent=score+' pts';
+ fb.className='fb ok';fb.textContent='Correcto. '+s.f[0];
+ $('cd').querySelector('.opts').remove();
+ s.tm?timer(s):next(s)
+}
+function next(s,r){
+ if(s.fx)s.fx(r);paint();
+ const last=i==S.length-1;
+ $('cd').insertAdjacentHTML('beforeend',`<div class="opts"><button class="go" id="nx">${last?'Ver resultado':'Siguiente paso'}</button></div>`);
+ $('nx').onclick=()=>{i++;last?end():step()};
+ prog();
+}
+function timer(s){
+ const t=s.tm,max=t.hi*1.5;let run=false,t0,raf,el=0;
+ $('cd').insertAdjacentHTML('beforeend',`<p class="spec">Pulsa Iniciar y detén el cronómetro dentro de la zona verde (${t.lo}–${t.hi} s simulados).</p><div class="big" id="tt">0 s</div><div class="bar"><div class="zone" style="left:${t.lo/max*100}%;width:${(t.hi-t.lo)/max*100}%"></div><div class="fill" id="fl"></div></div><div class="opts"><button class="go" id="tb">Iniciar</button></div>`);
+ const tb=$('tb');
+ function tick(n){el=(n-t0)/1000*t.sp;$('tt').textContent=Math.round(Math.min(el,max))+' s';$('fl').style.width=Math.min(el/max*100,100)+'%';if(el>=max)stop();else raf=requestAnimationFrame(tick)}
+ function stop(){cancelAnimationFrame(raf);run=false;tb.parentNode.remove();
+  const r=el<t.lo?'short':el>t.hi?'long':'ok',fb=$('fb');
+  let m;
+  if(s.t.startsWith('Decolorar'))m=r=='ok'?'Tiempo perfecto: las Gram negativas se decoloraron y las positivas retuvieron el morado.':r=='short'?'Poco tiempo: las Gram negativas conservan el morado (falsos Gram positivos).':'Demasiado tiempo: también las Gram positivas perdieron el morado (falsos Gram negativos).';
+  else m=r=='ok'?'Tiempo correcto.':r=='short'?'Tiempo corto: la tinción quedó débil.':'Tiempo largo: sobretinción, cuesta ver el detalle.';
+  log[i].r=r;score+=r=='ok'?15:5;fb.className='fb '+(r=='ok'?'ok':'no');fb.textContent=m;$('sc').textContent=score+' pts';next(s,r)}
+ tb.onclick=()=>{if(!run){run=true;t0=performance.now();tb.textContent='Detener';raf=requestAnimationFrame(tick)}else stop()}
+}
+function end(){
+ prog();const max=S.length*10+60,pc=Math.round(score/max*100);
+ const lv=pc>=85?'Excelente':pc>=60?'Buen trabajo':'Repasa la técnica';
+ const rows=S.map((z,k)=>{const g=log[k]||{e:0},ok=g.e==0&&(!g.r||g.r=='ok');return `<li class="${ok?'y':'n'}">${ok?'✓':'✗'} <b>${z.t}:</b> ${g.e?g.e+' error(es) al elegir. ':''}${g.r&&g.r!='ok'?(g.r=='short'?'Tiempo corto. ':'Tiempo largo. '):''}${ok?'Sin fallos.':'Repasa: '+z.f[0]}</li>`}).join('');
+ const d={ok:'Tinción bien hecha: las bacterias Gram positivas (cocos en racimos, p. ej. Staphylococcus) se ven moradas y las Gram negativas (bacilos, p. ej. Haemophilus) rosadas.',short:'Sub-decolorada: las Gram negativas quedaron moradas. Sin ver la técnica, las confundirías con Gram positivas.',long:'Sobre-decolorada: todas las bacterias quedaron rosadas. Las Gram positivas parecerían Gram negativas.'}[dec];
+ $('cd').innerHTML=`<h2>Resultado: ${pc}% (${score} de ${max} pts)</h2><div class="ill">${view()}</div><p>${d}</p><div class="leg"><span style="--c:${V}">Gram positiva</span><span style="--c:${P}">Gram negativa</span></div><p class="spec">Por qué ocurre: las Gram positivas tienen una pared gruesa de peptidoglicano que retiene el complejo cristal violeta–yodo. Las Gram negativas tienen una pared fina y una membrana externa que el alcohol disuelve, así que pierden el morado y toman la safranina.</p><h2>Retroalimentación: ${lv}</h2><ul class="rv">${rows}</ul><p class="spec"><b>Recuerda por qué importa el EPP:</b> las muestras de nariz y garganta pueden contener microorganismos patógenos. Usar bata, guantes, cubrebocas y lentes te protege a ti, a otras personas y a la muestra.</p><div class="opts"><button class="go" id="rp">Jugar de nuevo</button></div>`;
+ $('rp').onclick=()=>{i=0;score=0;pos=neg=C;dec='ok';pos='#cfc8bb';neg='#cfc8bb';log=[];intro()}
+}
+pos=neg='#cfc8bb';intro();
+</script></body></html>

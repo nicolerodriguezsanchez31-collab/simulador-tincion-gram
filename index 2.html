@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Misión Bacteriología</title>
+<style>
+:root{--bg:#E6EEE9;--ink:#12302F;--card:#fff;--naranja:#E8621A;--agar:#D9A21B;--ok:#1F7A4D;--mal:#B8322A;--linea:#B9CBC3}
+@media (prefers-color-scheme:dark){:root{--bg:#0F2322;--ink:#E4EFEA;--card:#173432;--linea:#2F5450}}
+*{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:"Trebuchet MS",Verdana,sans-serif;line-height:1.5;display:flex;justify-content:center}
+main{width:100%;max-width:560px;padding:20px 18px 40px}
+.barra{height:8px;background:var(--linea);border-radius:99px;overflow:hidden;margin-bottom:6px}
+.barra i{display:block;height:100%;background:var(--naranja);width:0;transition:width .3s}
+.pos{font-size:.8rem;margin:0 0 18px;opacity:.75}
+.tarjeta{background:var(--card);border:2px solid var(--linea);border-radius:14px;padding:24px 20px}
+h1{font-size:2rem;line-height:1.1;margin:0 0 12px}
+h2{font-size:1.4rem;line-height:1.2;margin:0 0 12px}
+.nivel{display:inline-block;background:var(--ink);color:var(--bg);border-radius:6px;padding:2px 10px;font-size:.85rem;margin-bottom:12px}
+.simbolo{font-size:3rem;margin:0 0 6px}
+p{margin:0 0 12px}
+button{font:inherit;cursor:pointer}
+.op{display:block;width:100%;text-align:left;background:transparent;color:var(--ink);border:2px solid var(--linea);border-radius:10px;padding:12px 14px;margin:0 0 10px}
+.op:hover:not([disabled]){border-color:var(--naranja)}
+.op.bien{border-color:var(--ok);background:rgba(31,122,77,.15)}
+.op.mal{border-color:var(--mal);background:rgba(184,50,42,.15)}
+.op[disabled]{cursor:default}
+.fb{border-left:5px solid var(--agar);padding:8px 12px;margin:6px 0 14px}
+.fb.bien{border-color:var(--ok)}.fb.mal{border-color:var(--mal)}
+.btn{background:var(--naranja);color:#fff;border:0;border-radius:10px;padding:12px 22px;font-weight:bold}
+.btn:focus-visible,.op:focus-visible{outline:3px solid var(--agar);outline-offset:2px}
+.puntos{font-size:2.6rem;font-weight:bold;margin:0 0 8px}
+.mus{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));right:12px;width:44px;height:44px;border-radius:50%;border:2px solid var(--linea);background:var(--card);font-size:1.3rem;line-height:1;padding:0;z-index:5}
+@media (prefers-reduced-motion:reduce){.barra i{transition:none}}
+</style>
+</head>
+<body>
+<button class="mus" id="mus" aria-label="Silenciar sonido" title="Sonido">🔊</button>
+<main>
+  <div class="barra"><i id="prog"></i></div>
+  <p class="pos" id="pos"></p>
+  <section class="tarjeta" id="pantalla" aria-live="polite"></section>
+</main>
+<script>
+const P = [
+ {t:'info', sim:'🧫', h:'Misión Bacteriología', x:['Eres el nuevo integrante del laboratorio de bacteriología. Hoy aprenderás a desechar bien los residuos y a elegir el medio de cultivo correcto.'], b:'Comenzar'},
+ {t:'info', h:'Tu misión', x:['Completa 2 niveles y un reto final. Cada respuesta correcta suma un punto (el reto final vale 2).','Lee la explicación después de cada respuesta: te ayudará en la siguiente pantalla.'], b:'Entendido'},
+ {t:'info', nivel:'Nivel 1', sim:'☣️', h:'RPBI: residuos peligrosos biológico-infecciosos', x:['Cada residuo va en su envase según su tipo. Un error aquí pone en riesgo a todo el personal.'], b:'Empezar nivel 1'},
+ {t:'q', nivel:'Nivel 1', q:'Terminaste de leer una caja de Petri con cultivo bacteriano. ¿Dónde la desechas?', o:['Bolsa roja (RPBI)','Basura común','Bolsa amarilla','Bolsa negra'], c:0, e:'Los cultivos y cepas de agentes infecciosos van en bolsa roja, previamente esterilizados según el procedimiento del laboratorio.'},
+ {t:'q', nivel:'Nivel 1', q:'Usaste una lanceta y una aguja para tomar una muestra. ¿Dónde van?', o:['Bolsa roja','Recipiente rígido rojo para punzocortantes','Bolsa amarilla','Basura común'], c:1, e:'Los objetos punzocortantes se depositan siempre en un recipiente rígido rojo, sin reencapuchar la aguja.'},
+ {t:'q', nivel:'Nivel 1', q:'Tienes gasas con sangre que no escurre. ¿Dónde las desechas?', o:['Bolsa amarilla','Basura común','Bolsa roja','Recipiente para vidrio'], c:2, e:'Los materiales con sangre no líquida, como gasas y algodones, van en bolsa roja.'},
+ {t:'q', nivel:'Nivel 1', q:'Recibes un tejido de biopsia que ya no se necesita. ¿Dónde va?', o:['Bolsa roja','Recipiente rojo para punzocortantes','Basura común','Bolsa amarilla'], c:3, e:'Los residuos patológicos (tejidos, órganos, fetos) van en bolsa amarilla.'},
+ {t:'cierre', nivel:'Nivel 1', h:'Nivel 1 completado', lv:[3,7]},
+ {t:'info', nivel:'Nivel 2', sim:'🔬', h:'Medios de cultivo', x:['Cada medio sirve para un objetivo distinto: enriquecer, seleccionar o diferenciar bacterias.'], b:'Empezar nivel 2'},
+ {t:'q', nivel:'Nivel 2', q:'Necesitas observar hemólisis de un Streptococcus. ¿Qué medio eliges?', o:['Agar MacConkey','Agar sangre','Agar sal y manitol','Agar chocolate'], c:1, e:'El agar sangre es un medio enriquecido que permite ver hemólisis alrededor de las colonias.'},
+ {t:'q', nivel:'Nivel 2', q:'Buscas bacilos Gram negativos y quieres saber si fermentan lactosa. ¿Qué medio usas?', o:['Agar sangre','Agar sal y manitol','Agar MacConkey','Agar chocolate'], c:2, e:'MacConkey es selectivo y diferencial: las colonias que fermentan lactosa se ven rosas.'},
+ {t:'q', nivel:'Nivel 2', q:'Sospechas de Staphylococcus aureus en una muestra de piel. ¿Qué medio conviene?', o:['Agar sal y manitol','Agar MacConkey','Agar sangre','Agar chocolate'], c:0, e:'El agar sal y manitol es selectivo para estafilococos; S. aureus fermenta el manitol y vuelve amarillo el medio.'},
+ {t:'q', nivel:'Nivel 2', q:'Quieres aislar Haemophilus o Neisseria, que son muy exigentes. ¿Qué medio eliges?', o:['Agar MacConkey','Agar sal y manitol','Agar sangre','Agar chocolate'], c:3, e:'El agar chocolate aporta los factores X y V que necesitan estos microorganismos.'},
+ {t:'cierre', nivel:'Nivel 2', h:'Nivel 2 completado', lv:[9,13]},
+ {t:'q', nivel:'Reto final', pts:2, q:'Sembraste orina en agar MacConkey y crecieron colonias rosas. Ya leíste las cajas. ¿Qué haces con ellas y qué indican?', o:['Basura común; no fermentan lactosa','Bolsa roja RPBI; fermentan lactosa','Bolsa amarilla; no fermentan lactosa','Las guardo abiertas en la mesa; son Gram positivas'], c:1, e:'Las colonias rosas fermentan lactosa, y las cajas con cultivo se desechan como RPBI en bolsa roja.'},
+ {t:'fin'}
+];
+let ac = null, sonidoOn = true, tmr = null, paso = 0;
+const mel = [262,330,392,330,294,349,440,349,262,330,392,523,392,330,294,262];
+function audio(){
+  if(!ac){ const A = window.AudioContext || window.webkitAudioContext; if(!A) return null; ac = new A(); }
+  if(ac.state === 'suspended') ac.resume();
+  return ac;
+}
+function tono(f, t0, d, tipo, vol){
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = tipo; o.frequency.value = f;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+  o.connect(g); g.connect(ac.destination);
+  o.start(t0); o.stop(t0 + d + 0.05);
+}
+function sonido(tipo){
+  if(!sonidoOn || !audio()) return;
+  const t = ac.currentTime;
+  if(tipo === 'bien'){ tono(660, t, .15, 'sine', .25); tono(880, t + .12, .3, 'sine', .25); }
+  else if(tipo === 'mal'){ tono(200, t, .3, 'sawtooth', .15); tono(150, t + .15, .4, 'sawtooth', .15); }
+  else if(tipo === 'fin'){ [523,659,784,1047].forEach((f, k) => tono(f, t + k * .15, .35, 'triangle', .25)); }
+  else { tono(440, t, .06, 'square', .06); }
+}
+function musica(){
+  if(tmr) return;
+  tmr = setInterval(() => { if(ac && sonidoOn){ tono(mel[paso % mel.length], ac.currentTime, .35, 'triangle', .05); paso++; } }, 420);
+}
+document.addEventListener('pointerdown', () => { audio(); musica(); }, {once:true});
+document.getElementById('mus').onclick = e => {
+  sonidoOn = !sonidoOn;
+  e.currentTarget.textContent = sonidoOn ? '🔊' : '🔇';
+  e.currentTarget.setAttribute('aria-label', sonidoOn ? 'Silenciar sonido' : 'Activar sonido');
+  if(sonidoOn){ audio(); musica(); }
+};
+const pantalla = document.getElementById('pantalla');
+let i = 0, pts = 0, ganado = {};
+const rangos = [[9,'Bacteriólogo experto','Dominas el RPBI y los medios de cultivo.'],[6,'Técnico de laboratorio','Vas muy bien. Repasa las respuestas que fallaste.'],[0,'Aprendiz','Repasa el RPBI y los medios de cultivo y vuelve a intentarlo.']];
+function mostrar(){
+  const s = P[i];
+  document.getElementById('prog').style.width = ((i+1)/P.length*100)+'%';
+  document.getElementById('pos').textContent = 'Pantalla '+(i+1)+' de '+P.length;
+  pantalla.innerHTML = '';
+  const add = (tag, txt, cls) => { const n = document.createElement(tag); n.textContent = txt; if(cls) n.className = cls; pantalla.appendChild(n); return n; };
+  if(s.nivel) add('span', s.nivel, 'nivel');
+  if(s.t === 'info'){
+    if(s.sim) add('p', s.sim, 'simbolo');
+    add(i === 0 ? 'h1' : 'h2', s.h);
+    s.x.forEach(t => add('p', t));
+    boton(s.b, siguiente);
+  } else if(s.t === 'q'){
+    add('h2', s.q);
+    const fb = document.createElement('div');
+    const ops = s.o.map((t, k) => {
+      const b = document.createElement('button');
+      b.className = 'op'; b.textContent = t;
+      b.onclick = () => responder(k, ops, fb, s);
+      pantalla.appendChild(b); return b;
+    });
+    pantalla.appendChild(fb);
+  } else if(s.t === 'cierre'){
+    let total = 0, max = 0;
+    for(let k = s.lv[0]; k < s.lv[1]; k++){ max++; total += ganado[k] ? 1 : 0; }
+    add('h2', s.h);
+    add('p', total+' / '+max, 'puntos');
+    add('p', total === max ? 'Sin errores. Sigue así.' : 'Repasa las explicaciones: te servirán más adelante.');
+    boton('Continuar', siguiente);
+  } else {
+    sonido('fin');
+    const r = rangos.find(r => pts >= r[0]);
+    add('p', '🏅', 'simbolo');
+    add('h2', 'Misión terminada');
+    add('p', pts+' / 10', 'puntos');
+    add('h2', r[1]);
+    add('p', r[2]);
+    boton('Jugar de nuevo', () => { i = 0; pts = 0; ganado = {}; mostrar(); });
+  }
+}
+function responder(k, ops, fb, s){
+  const ok = k === s.c;
+  sonido(ok ? 'bien' : 'mal');
+  if(ok){ pts += s.pts || 1; ganado[i] = true; }
+  ops.forEach((b, j) => { b.disabled = true; if(j === s.c) b.classList.add('bien'); else if(j === k) b.classList.add('mal'); });
+  const p = document.createElement('p');
+  p.className = 'fb ' + (ok ? 'bien' : 'mal');
+  p.textContent = (ok ? 'Correcto. ' : 'Incorrecto. ') + s.e;
+  fb.appendChild(p);
+  const b = document.createElement('button');
+  b.className = 'btn'; b.textContent = 'Siguiente'; b.onclick = siguiente;
+  fb.appendChild(b); b.focus();
+}
+function boton(txt, fn){
+  const b = document.createElement('button');
+  b.className = 'btn'; b.textContent = txt; b.onclick = () => { sonido('clic'); fn(); };
+  pantalla.appendChild(b);
+}
+function siguiente(){ i++; mostrar(); window.scrollTo(0,0); }
+mostrar();
+</script>
+</body>
+</html>
